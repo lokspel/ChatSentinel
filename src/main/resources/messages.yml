@@ -39,6 +39,7 @@ langs:
     correction_usage: "&cUsage: /autocorrect [on|off|toggle]"
     correction_console_only: "&cOnly players can toggle auto-correction."
     similarity_warn_message: "&c&lCS: &cStop writing similar messages. Similarity: %similarity%"
+    cancellation_fallback: "&c&lCS: &cYour input was blocked by &f%module%&c."
   es:
     cleared: "&dGame chat has been cleared by &f%player%&d. Reason: &f%reason%"
     clear_bypass_notice: "&7Chat was cleared by &f%player%&7, but you bypassed clear. Reason: &f%reason%"
@@ -73,6 +74,7 @@ langs:
     correction_usage: "&cUso: /autocorrect [on|off|toggle]"
     correction_console_only: "&cSolo los jugadores pueden activar o desactivar la auto-correccion."
     similarity_warn_message: "&c&lCS: &cDeja de escribir mensajes similares. Similitud: %similarity%"
+    cancellation_fallback: "&c&lCS: &cYour input was blocked by &f%module%&c."
   pt-br:
     cleared: "&dGame chat has been cleared by &f%player%&d. Reason: &f%reason%"
     clear_bypass_notice: "&7Chat was cleared by &f%player%&7, but you bypassed clear. Reason: &f%reason%"
@@ -107,3 +109,4 @@ langs:
     correction_usage: "&cUso: /autocorrect [on|off|toggle]"
     correction_console_only: "&cApenas jogadores podem ativar ou desativar a auto-correcao."
     similarity_warn_message: "&c&lCS: &cPare de escrever mensagens semelhantes. Semelhanca: %similarity%"
+    cancellation_fallback: "&c&lCS: &cYour input was blocked by &f%module%&c."

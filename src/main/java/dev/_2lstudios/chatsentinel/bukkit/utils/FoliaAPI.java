@@ -292,22 +292,52 @@ public final class FoliaAPI {
         runTaskForEntity(plugin, entity, run, null, 0L);
     }
 
-    public static void runTaskForEntity(final Plugin plugin, final Entity entity, final Runnable run, final Runnable retired, final long delay) {
+    public static boolean tryRunTaskForEntity(final Plugin plugin, final Entity entity, final Runnable run,
+            final Runnable retired, final long delay) {
         if (plugin == null || entity == null || run == null) {
-            return;
+            return false;
         }
         if (!isFolia()) {
             if (delay <= 0L && Bukkit.isPrimaryThread()) {
                 run.run();
-            } else {
-                getBukkitSchedulerSafe().runTaskLater(plugin, run, Math.max(0L, delay));
+                return true;
             }
-            return;
+            try {
+                getBukkitSchedulerSafe().runTaskLater(plugin, run, Math.max(0L, delay));
+                return true;
+            } catch (RuntimeException e) {
+                return false;
+            }
         }
         final Object entityScheduler = getEntityScheduler(plugin, entity);
         final Method method = getEntitySchedulerMethod(entityScheduler, "execute", Plugin.class, Runnable.class, Runnable.class, long.class);
         final Object result = invoke(method, entityScheduler, plugin.getLogger(), "entityScheduler.execute", plugin, run, retired, normalizeDelayTicks(delay));
-        if (Boolean.FALSE.equals(result) && retired != null) {
+        return Boolean.TRUE.equals(result);
+    }
+
+    public static void runTaskForEntity(final Plugin plugin, final Entity entity, final Runnable run, final Runnable retired, final long delay) {
+        if (plugin == null || entity == null || run == null) {
+            return;
+        }
+        boolean scheduled;
+        if (!isFolia()) {
+            if (delay <= 0L && Bukkit.isPrimaryThread()) {
+                run.run();
+                return;
+            }
+            try {
+                getBukkitSchedulerSafe().runTaskLater(plugin, run, Math.max(0L, delay));
+                scheduled = true;
+            } catch (RuntimeException e) {
+                scheduled = false;
+            }
+        } else {
+            final Object entityScheduler = getEntityScheduler(plugin, entity);
+            final Method method = getEntitySchedulerMethod(entityScheduler, "execute", Plugin.class, Runnable.class, Runnable.class, long.class);
+            final Object result = invoke(method, entityScheduler, plugin.getLogger(), "entityScheduler.execute", plugin, run, retired, normalizeDelayTicks(delay));
+            scheduled = Boolean.TRUE.equals(result);
+        }
+        if (!scheduled && retired != null) {
             retired.run();
         }
     }

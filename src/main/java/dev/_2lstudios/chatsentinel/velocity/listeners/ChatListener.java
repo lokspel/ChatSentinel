@@ -4,20 +4,25 @@ import com.velocitypowered.api.event.PostOrder;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.proxy.Player;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationApplication;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
+import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
+import dev._2lstudios.chatsentinel.shared.chat.LegacyChatFormatRenderer;
 import dev._2lstudios.chatsentinel.shared.modules.WhitelistModule;
 import dev._2lstudios.chatsentinel.velocity.ChatSentinel;
-import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
-import dev._2lstudios.chatsentinel.shared.chat.ProcessedChatEvent;
 import dev._2lstudios.chatsentinel.velocity.platform.VelocityChatUser;
 
 public class ChatListener {
 	private final ChatSentinel plugin;
 	private final WhitelistModule whitelistModule;
+	private final LegacyChatFormatRenderer chatFormatRenderer;
 
 	public ChatListener(ChatSentinel plugin, WhitelistModule whitelistModule) {
 		this.plugin = plugin;
-        this.whitelistModule = whitelistModule;
-    }
+		this.whitelistModule = whitelistModule;
+		this.chatFormatRenderer = new LegacyChatFormatRenderer();
+	}
 
 	@Subscribe(order = PostOrder.LAST)
 	public void onChatEvent(PlayerChatEvent event) {
@@ -54,18 +59,31 @@ public class ChatListener {
 			return;
 		}
 
-		ProcessedChatEvent finalResult = plugin.getChatEventProcessor().process(chatUser, message, true);
+		final boolean isCommand = message.startsWith("/");
+		final ChatModerationDecision decision = plugin.getChatEventProcessor().process(chatUser, message, true);
+		final ChatModerationAction action = decision.getAction();
 
-		// Apply modifiers to event
-		if (finalResult.isCancelled()) {
-			// Velocity 1.19.1+ can kick signed-chat clients when denied; warn-only avoids mutation.
-			event.setResult(PlayerChatEvent.ChatResult.denied());
+		if (action.isTerminal()) {
+			if (isCommand) {
+				final ChatModerationApplication application = ChatModerationApplication.forCommand(decision);
+				event.setResult(PlayerChatEvent.ChatResult.denied());
+				for (String msg : application.getSenderMessages()) {
+					chatUser.sendMessage(msg);
+				}
+			} else {
+				final String renderedSelfOnly = chatFormatRenderer.render("<%s> %s", player.getUsername(), player.getUsername(), message);
+				final ChatModerationApplication application = ChatModerationApplication.forChat(decision, renderedSelfOnly);
+				event.setResult(PlayerChatEvent.ChatResult.denied());
+				for (String msg : application.getSenderMessages()) {
+					chatUser.sendMessage(msg);
+				}
+			}
 		} else {
-			event.setResult(PlayerChatEvent.ChatResult.message(finalResult.getMessage()));
+			if (action.rewritesMessage()) {
+				event.setResult(PlayerChatEvent.ChatResult.message(decision.getMessage()));
+			}
+			trackAllowedMessage(event, chatPlayer, player, decision.getMessage());
 		}
-
-		// Set last message
-		trackAllowedMessage(event, chatPlayer, player, finalResult.getMessage());
 	}
 
 	private void trackAllowedMessage(PlayerChatEvent event, ChatPlayer chatPlayer, Player player, String message) {

@@ -64,7 +64,7 @@ public class BlacklistModerationModule extends ModerationModule {
 				? new FilterModuleSettingsRegistry(Collections.<String, FilterModuleSettings>emptyMap(), FilterModuleSettings.disabled("default"))
 				: settingsRegistry;
 		FilterModuleSettings settings = this.settingsRegistry.resolve("default");
-		applySettings(settings);
+		applyDefaultSettings(settings);
 	}
 
 	public boolean isFakeMessage() {
@@ -97,9 +97,6 @@ public class BlacklistModerationModule extends ModerationModule {
 		if (!isEnabled()) {
 			return null;
 		}
-
-		boolean cancelled = false;
-		boolean hide = false;
 
 		GeneralModule generalModule = moduleManager.getGeneralModule();
 		WhitelistModule whitelistModule = moduleManager.getWhitelistModule();
@@ -137,21 +134,21 @@ public class BlacklistModerationModule extends ModerationModule {
 			return null;
 		}
 
-		if (settings.isFakeMessage()) {
-			hide = true;
-		} else if (settings.isCensorshipEnabled()) {
-			message = findPattern(match).matcher(message).replaceAll(settings.getCensorshipReplacement());
-		} else if (settings.isBlockRawMessage()) {
-			cancelled = true;
-		}
-
-		applySettings(settings);
-		ChatEventResult result = new ChatEventResult(message, cancelled, hide);
-		result.setViolation(new ModerationViolation(
+		String replacedMessage = findPattern(match).matcher(message).replaceAll(settings.getCensorshipReplacement());
+		ModerationViolation violation = new ModerationViolation(
 				ModerationIdentity.blacklist(match.getSource(), settings),
 				new ModerationActionSettings(settings.getMaxWarns(), settings.getWarnNotification(), settings.isWebhookEnabled(), settings.getCommands()),
-				match));
-		return result;
+				match);
+
+		if (settings.isFakeMessage()) {
+			return ChatEventResult.selfOnly(message).withViolation(violation);
+		} else if (settings.isCensorshipEnabled()) {
+			return ChatEventResult.rewrite(replacedMessage).withViolation(violation);
+		} else if (settings.isBlockRawMessage()) {
+			return ChatEventResult.block(message).withViolation(violation);
+		} else {
+			return ChatEventResult.pass(message).withViolation(violation);
+		}
 	}
 
 	@Override
@@ -176,7 +173,7 @@ public class BlacklistModerationModule extends ModerationModule {
 		return result;
 	}
 
-	private void applySettings(FilterModuleSettings settings) {
+	private void applyDefaultSettings(FilterModuleSettings settings) {
 		setEnabled(settings.isEnabled());
 		setMaxWarns(settings.getMaxWarns());
 		setWarnNotification(settings.getWarnNotification());

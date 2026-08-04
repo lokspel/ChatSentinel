@@ -42,7 +42,7 @@ public class NoMoveChatModule {
 
     public ChatEventResult processEvent(ChatPlayer chatPlayer, String originalMessage) {
         if (enabled && !chatPlayer.hasMovementGatePassed()) {
-            return new ChatEventResult(originalMessage, true);
+			return ChatEventResult.block(originalMessage);
         }
 
         return null;

@@ -33,18 +33,15 @@ public class FloodModerationModule extends ModerationModule {
 	public ChatEventResult processEvent(ChatPlayer chatPlayer, MessagesModule messagesModule, String playerName,
 			String message, String lang) {
 		if (isEnabled() && pattern.matcher(message).find()) {
-			boolean cancelled = true;
-
 			if (isReplace()) {
 				String replacedString = replace(message);
 
 				if (!replacedString.isEmpty()) {
-					message = replacedString;
-					cancelled = false;
+					return ChatEventResult.rewrite(replacedString);
 				}
 			}
 
-			return new ChatEventResult(message, cancelled);
+			return ChatEventResult.block(message);
 		}
 
 		return null;

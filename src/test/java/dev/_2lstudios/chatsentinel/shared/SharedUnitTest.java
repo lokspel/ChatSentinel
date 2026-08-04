@@ -7,17 +7,25 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.junit.Test;
 
 import dev._2lstudios.chatsentinel.shared.chat.ChatEventResult;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
+import dev._2lstudios.chatsentinel.shared.filter.CompiledFilterFile;
+import dev._2lstudios.chatsentinel.shared.filter.CompiledFilterRegistry;
 import dev._2lstudios.chatsentinel.shared.filter.FilterCompiler;
 import dev._2lstudios.chatsentinel.shared.filter.FilterExpressionFile;
 import dev._2lstudios.chatsentinel.shared.filter.FilterKind;
 import dev._2lstudios.chatsentinel.shared.filter.FilterMatch;
+import dev._2lstudios.chatsentinel.shared.filter.FilterModuleSettings;
+import dev._2lstudios.chatsentinel.shared.filter.FilterModuleSettingsRegistry;
 import dev._2lstudios.chatsentinel.shared.filter.FilterSource;
 import dev._2lstudios.chatsentinel.shared.filter.CommonRegexGenerator;
 import dev._2lstudios.chatsentinel.shared.modules.CapitalizationModule;
@@ -81,7 +89,7 @@ public class SharedUnitTest {
         ChatEventResult result = moduleManager.getBlacklistModule().processEvent(
                 new ChatPlayer(UUID.randomUUID()), moduleManager.getMessagesModule(), "player", "ass", "en");
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
     }
 
     @Test
@@ -116,7 +124,7 @@ public class SharedUnitTest {
         ChatEventResult result = module.processEvent(new ChatPlayer(UUID.randomUUID()), null, "Steve", "hello EVERYONE", "en");
 
         assertEquals("hello everyone", result.getMessage());
-        assertFalse(result.isCancelled());
+        assertFalse(result.getAction().isTerminal());
     }
 
     @Test
@@ -241,6 +249,55 @@ public class SharedUnitTest {
         module.loadData("en", locales);
 
         assertTrue(module.hasWarnMessage("en", "capitalization"));
+    }
+
+    @Test
+    public void processEvent_doesNotMutateDefaultBlacklistSettings_whenSourceSpecificMatchUsesDifferentSettings() {
+        FilterSource defaultSource = new FilterSource(FilterKind.BLACKLIST, "default", "blacklist.yml", "Blacklist");
+        FilterSource sourceSpecificSource = new FilterSource(FilterKind.BLACKLIST, "source-specific", "source-specific/badwords.yml", "Badwords");
+
+        CompiledFilterFile defaultFile = new CompiledFilterFile(
+                defaultSource,
+                Pattern.compile("ass"),
+                1
+        );
+
+        CompiledFilterFile sourceSpecificFile = new CompiledFilterFile(
+                sourceSpecificSource,
+                Pattern.compile("badword"),
+                1
+        );
+
+        CompiledFilterRegistry blacklistRegistry = new CompiledFilterRegistry(
+                FilterKind.BLACKLIST,
+                Arrays.asList(defaultFile, sourceSpecificFile)
+        );
+
+        FilterModuleSettings defaultSettings = FilterModuleSettings.defaultBlacklist(
+                "default", true, "Blacklist", false, false, "", 1, "", false, new String[0], true
+        );
+
+        FilterModuleSettings sourceSpecificSettings = FilterModuleSettings.defaultBlacklist(
+                "source-specific", true, "Badwords", true, false, "", 1, "", false, new String[0], false
+        );
+
+        Map<String, FilterModuleSettings> settingsByModuleId = new HashMap<String, FilterModuleSettings>();
+        settingsByModuleId.put(defaultSettings.getModuleId(), defaultSettings);
+        settingsByModuleId.put(sourceSpecificSettings.getModuleId(), sourceSpecificSettings);
+
+        FilterModuleSettingsRegistry settingsRegistry = new FilterModuleSettingsRegistry(settingsByModuleId, defaultSettings);
+
+        CompiledFilterRegistry whitelistRegistry = new CompiledFilterRegistry(FilterKind.WHITELIST, Collections.emptyList());
+
+        ModuleManager moduleManager = new TestModuleManager();
+        moduleManager.getBlacklistModule().loadData(blacklistRegistry, whitelistRegistry, settingsRegistry);
+
+        ChatEventResult result = moduleManager.getBlacklistModule().processEvent(
+                new ChatPlayer(UUID.randomUUID()), moduleManager.getMessagesModule(), "player", "badword", "en");
+
+        assertEquals(ChatModerationAction.SELF_ONLY, result.getAction());
+        assertFalse(moduleManager.getBlacklistModule().isFakeMessage());
+        assertTrue(moduleManager.getBlacklistModule().isBlockRawMessage());
     }
 
     private static final class TestModuleManager extends ModuleManager {

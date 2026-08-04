@@ -5,71 +5,123 @@ import java.util.Optional;
 
 import dev._2lstudios.chatsentinel.shared.moderation.ModerationViolation;
 
-public class ChatEventResult {
-    private String message;
-    private boolean cancelled;
-    private boolean hide;
-    private boolean notify = true;
-    private Optional<ModerationViolation> violation;
-    private Optional<String> playerMessage;
+public final class ChatEventResult {
+    private final String message;
+    private final ChatModerationAction action;
+    private final boolean notify;
+    private final Optional<ModerationViolation> violation;
+    private final Optional<String> playerMessage;
 
-    public ChatEventResult(String message, boolean cancelled, boolean hide) {
-        this.message = message;
-        this.cancelled = cancelled;
-        this.hide = hide;
-        this.violation = Optional.empty();
-        this.playerMessage = Optional.empty();
-    }
-
-    public ChatEventResult(String message, boolean cancelled) {
-        this(message, cancelled, false);
-    }
-
-    public Optional<String> getPlayerMessage() {
-        return playerMessage;
-    }
-
-    public void setPlayerMessage(final String playerMessage) {
-        this.playerMessage = Optional.of(Objects.requireNonNull(playerMessage, "playerMessage"));
-    }
-
-    public boolean isNotify() {
-        return notify;
-    }
-
-    public void setNotify(final boolean notify) {
+    private ChatEventResult(String message, ChatModerationAction action, boolean notify,
+            Optional<ModerationViolation> violation, Optional<String> playerMessage) {
+        this.message = message == null ? "" : message;
+        this.action = action;
         this.notify = notify;
+        this.violation = violation;
+        this.playerMessage = playerMessage;
+    }
+
+    public static ChatEventResult pass(String message) {
+        return new ChatEventResult(
+                message == null ? "" : message,
+                ChatModerationAction.PASS,
+                true,
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
+    public static ChatEventResult rewrite(String message) {
+        return new ChatEventResult(
+                message == null ? "" : message,
+                ChatModerationAction.REWRITE,
+                true,
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
+    public static ChatEventResult block(String message) {
+        return new ChatEventResult(
+                message == null ? "" : message,
+                ChatModerationAction.BLOCK,
+                true,
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
+    public static ChatEventResult selfOnly(String message) {
+        return new ChatEventResult(
+                message == null ? "" : message,
+                ChatModerationAction.SELF_ONLY,
+                true,
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
+    public ChatEventResult withNotify(boolean notify) {
+        return new ChatEventResult(message, action, notify, violation, playerMessage);
+    }
+
+    public ChatEventResult withViolation(ModerationViolation v) {
+        return new ChatEventResult(message, action, notify,
+                Optional.of(Objects.requireNonNull(v, "violation")), playerMessage);
+    }
+
+    public ChatEventResult withPlayerMessage(String pm) {
+        if (pm == null || pm.trim().isEmpty()) {
+            return new ChatEventResult(message, action, notify, violation, Optional.empty());
+        }
+        return new ChatEventResult(message, action, notify, violation, Optional.of(pm));
     }
 
     public String getMessage() {
         return message;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public ChatModerationAction getAction() {
+        return action;
     }
 
-    public boolean isCancelled() {
-        return cancelled;
-    }
-
-    public void setCancelled(boolean cancelled) {
-        this.cancelled = cancelled;
-    }
-
-    public boolean isHide() {
-        return hide;
-    }
-
-    public void setHide(boolean hide) {
-        this.hide = hide;
+    public boolean isNotify() {
+        return notify;
     }
 
     public Optional<ModerationViolation> getViolation() {
         return violation;
     }
 
-    public void setViolation(ModerationViolation violation) {
-        this.violation = Optional.of(Objects.requireNonNull(violation, "violation"));
+    public Optional<String> getPlayerMessage() {
+        return playerMessage;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ChatEventResult that = (ChatEventResult) o;
+        return notify == that.notify &&
+                action == that.action &&
+                Objects.equals(message, that.message) &&
+                Objects.equals(violation, that.violation) &&
+                Objects.equals(playerMessage, that.playerMessage);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(message, action, notify, violation, playerMessage);
+    }
+
+    @Override
+    public String toString() {
+        return "ChatEventResult{" +
+                "message='" + message + '\'' +
+                ", action=" + action +
+                ", notify=" + notify +
+                ", violation=" + violation +
+                ", playerMessage=" + playerMessage +
+                '}';
     }
 }

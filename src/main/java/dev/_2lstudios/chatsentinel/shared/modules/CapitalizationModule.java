@@ -80,11 +80,10 @@ public class CapitalizationModule extends ModerationModule {
             }
         }
 
-        final ChatEventResult result = new ChatEventResult(correctedMessage, false);
         if (!excessiveUppercase && needsFirstLetter) {
-            result.setNotify(false);
+            return ChatEventResult.rewrite(correctedMessage).withNotify(false);
         }
-        return result;
+        return ChatEventResult.rewrite(correctedMessage);
     }
 
     @Override

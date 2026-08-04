@@ -61,13 +61,10 @@ public class CooldownModerationModule extends ModerationModule {
 			String originalMessage, String lang) {
 		final float remainingTime = getRemainingTime(chatPlayer, originalMessage);
 		if (isEnabled() && remainingTime > 0.0F) {
-			final ChatEventResult result = new ChatEventResult(originalMessage, true);
-			result.setNotify(false);
-			result.setPlayerMessage(messagesModule.getCooldownWarnMessage(new String[][] {
+			return ChatEventResult.block(originalMessage).withNotify(false).withPlayerMessage(messagesModule.getCooldownWarnMessage(new String[][] {
 					{ "%cooldown%" },
 					{ formatSeconds(remainingTime) }
 			}, lang));
-			return result;
 		}
 
 		return null;

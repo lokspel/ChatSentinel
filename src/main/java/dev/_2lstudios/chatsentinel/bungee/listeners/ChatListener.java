@@ -2,9 +2,11 @@ package dev._2lstudios.chatsentinel.bungee.listeners;
 
 import dev._2lstudios.chatsentinel.bungee.ChatSentinel;
 import dev._2lstudios.chatsentinel.bungee.platform.BungeeChatUser;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationApplication;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayerManager;
-import dev._2lstudios.chatsentinel.shared.chat.ProcessedChatEvent;
 import dev._2lstudios.chatsentinel.shared.modules.WhitelistModule;
 import net.md_5.bungee.api.connection.Connection;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -30,17 +32,13 @@ public class ChatListener implements Listener {
 			return;
 		}
 
-		// Sender
 		Connection sender = event.getSender();
-		
 		if (!(sender instanceof ProxiedPlayer)) {
 			return;
 		}
 
-		// Get player
 		ProxiedPlayer player = (ProxiedPlayer) sender;
 
-		// Check if the player's current server is on the whitelist
 		if (player.getServer() != null) {
 			String playerCurrentServer = player.getServer().getInfo().getName();
 			if (whitelistModule.getWhitelistedServers().contains(playerCurrentServer)) {
@@ -48,32 +46,40 @@ public class ChatListener implements Listener {
 			}
 		}
 
-		// Get event variables
 		String message = event.getMessage();
+		boolean isCommand = event.isCommand();
 
-		// Get chat player
 		BungeeChatUser chatUser = new BungeeChatUser(player, plugin.getMessageSink());
 		ChatPlayer chatPlayer = chatPlayerManager.getPlayer(chatUser);
 
-		// Process the event
-		ProcessedChatEvent finalResult = plugin.getChatEventProcessor().process(chatUser, message, true);
+		ChatModerationDecision decision = plugin.getChatEventProcessor().process(chatUser, message, true);
 
-		// Apply modifiers to event
-		if (finalResult.isHide()) {
-			event.setCancelled(true);
-			chatUser.sendMessage(finalResult.getMessage());
-		} else if (finalResult.isCancelled()) {
-			event.setCancelled(true);
-		} else {
-			event.setMessage(finalResult.getMessage());
+		ChatModerationAction action = decision.getAction();
+
+		if (action.isTerminal()) {
+			ChatModerationApplication application = isCommand
+					? ChatModerationApplication.forCommand(decision)
+					: ChatModerationApplication.forChat(decision, message);
+
+			if (application.getCancelOriginal()) {
+				event.setCancelled(true);
+			}
+
+			for (String msg : application.getSenderMessages()) {
+				chatUser.sendMessage(msg);
+			}
+			return;
 		}
 
-		// Set last message
-		if (!event.isCancelled()) {
-			if (message.startsWith("/")) {
+		if (action.rewritesMessage()) {
+			event.setMessage(decision.getMessage());
+		}
+
+		if (action == ChatModerationAction.PASS || action == ChatModerationAction.REWRITE) {
+			if (isCommand) {
 				chatPlayer.addLastCommand(System.currentTimeMillis());
 			} else {
-				chatPlayer.addLastMessage(finalResult.getMessage(), System.currentTimeMillis());
+				chatPlayer.addLastMessage(decision.getMessage(), System.currentTimeMillis());
 			}
 		}
 	}

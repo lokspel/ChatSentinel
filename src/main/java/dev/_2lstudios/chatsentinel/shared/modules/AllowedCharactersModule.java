@@ -47,11 +47,14 @@ public class AllowedCharactersModule extends ModerationModule {
 		}
 
 		if (BLOCK_MODE.equals(mode)) {
-			return new ChatEventResult(originalMessage, true, false);
+			return ChatEventResult.block(originalMessage).withPlayerMessage(messagesModule.getFiltered(lang));
 		}
 
 		String replacedMessage = replaceDisallowedCharacters(originalMessage);
-		return new ChatEventResult(replacedMessage, replacedMessage.isEmpty(), false);
+		if (replacedMessage.isEmpty()) {
+			return ChatEventResult.block(originalMessage).withPlayerMessage(messagesModule.getFiltered(lang));
+		}
+		return ChatEventResult.rewrite(replacedMessage);
 	}
 
 	@Override

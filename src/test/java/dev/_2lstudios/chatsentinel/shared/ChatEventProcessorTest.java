@@ -3,10 +3,11 @@ package dev._2lstudios.chatsentinel.shared;
 import dev._2lstudios.chatsentinel.shared.alerts.LocalAlertBus;
 import dev._2lstudios.chatsentinel.shared.chat.ChatEventProcessor;
 import dev._2lstudios.chatsentinel.shared.chat.ChatEventResult;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
 import dev._2lstudios.chatsentinel.shared.chat.ChatNotificationManager;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayerManager;
-import dev._2lstudios.chatsentinel.shared.chat.ProcessedChatEvent;
 import dev._2lstudios.chatsentinel.shared.commands.CommandResult;
 import dev._2lstudios.chatsentinel.shared.filter.FilterCompileStatus;
 import dev._2lstudios.chatsentinel.shared.modules.AllowedCharactersModule;
@@ -42,9 +43,9 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("BungeeCord", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
     }
 
     @Test
@@ -59,9 +60,9 @@ public class ChatEventProcessorTest {
         };
         ChatEventProcessor processor = processor(modules, new FakePlatform("BungeeCord", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertFalse(result.isCancelled());
+        assertFalse(result.getAction().isTerminal());
     }
 
     @Test
@@ -71,9 +72,9 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Velocity", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertFalse(result.isCancelled());
+        assertFalse(result.getAction().isTerminal());
     }
 
     @Test
@@ -83,9 +84,9 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
     }
 
     @Test
@@ -97,9 +98,9 @@ public class ChatEventProcessorTest {
         players.getPlayer(user).markMovementGatePassed();
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), players);
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertFalse(result.isCancelled());
+        assertFalse(result.getAction().isTerminal());
     }
 
     @Test
@@ -116,9 +117,9 @@ public class ChatEventProcessorTest {
         };
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
     }
 
     @Test
@@ -138,10 +139,10 @@ public class ChatEventProcessorTest {
         players.getPlayer(user).markMovementGatePassed();
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), players);
 
-        ProcessedChatEvent result = processor.process(user, "wath are you doign FRIEND OF MINE?", true);
+        ChatModerationDecision result = processor.process(user, "wath are you doign FRIEND OF MINE?", true);
 
         assertEquals("What are you doing friend of mine?", result.getMessage());
-        assertFalse(result.isCancelled());
+        assertFalse(result.getAction().isTerminal());
     }
 
     @Test
@@ -159,9 +160,11 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        processor.process(user, "Pvt4", true);
+        ChatModerationDecision decision = processor.process(user, "Pvt4", true);
 
-        assertTrue(user.getMessages().contains("Blocked word: Pvt4."));
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertTrue(decision.getPlayerFeedback().isPresent());
+        assertTrue(decision.getPlayerFeedback().get().contains("Blocked word: Pvt4"));
     }
 
     @Test
@@ -179,9 +182,11 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        processor.process(user, "badword then Pvt4", true);
+        ChatModerationDecision decision = processor.process(user, "badword then Pvt4", true);
 
-        assertTrue(user.getMessages().contains("Blocked word: badword."));
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertTrue(decision.getPlayerFeedback().isPresent());
+        assertTrue(decision.getPlayerFeedback().get().contains("Blocked word: badword"));
     }
 
     @Test
@@ -201,11 +206,11 @@ public class ChatEventProcessorTest {
         chatPlayer.addLastMessage("hello", System.currentTimeMillis() - 1000L);
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), players);
 
-        ProcessedChatEvent result = processor.process(user, "hello", true);
+        ChatModerationDecision result = processor.process(user, "hello", true);
 
-        assertTrue(result.isCancelled());
-        assertTrue(user.getMessages().stream().anyMatch(m -> m.contains("You can write your next message in")));
-        assertTrue(user.getMessages().stream().noneMatch(m -> m.contains("You cannot write that")));
+        assertTrue(result.getAction().isTerminal());
+        assertTrue(result.getPlayerFeedback().isPresent());
+        assertTrue(result.getPlayerFeedback().get().contains("You can write your next message in"));
     }
 
     @Test
@@ -242,9 +247,11 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        processor.process(user, "bad wath", true);
+        ChatModerationDecision decision = processor.process(user, "bad wath", true);
 
-        assertEquals(Collections.singletonList("blocked bad"), user.getMessages());
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertTrue(decision.getPlayerFeedback().isPresent());
+        assertTrue(decision.getPlayerFeedback().get().contains("blocked"));
     }
 
     @Test
@@ -288,9 +295,9 @@ public class ChatEventProcessorTest {
         chatPlayer.addLastMessage("spam", System.currentTimeMillis() - 10000L);
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), players);
 
-        ProcessedChatEvent result = processor.process(user, "sp am", true);
+        ChatModerationDecision result = processor.process(user, "sp am", true);
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
     }
 
     @Test
@@ -308,7 +315,7 @@ public class ChatEventProcessorTest {
         };
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello everyone", true);
+        ChatModerationDecision result = processor.process(user, "hello everyone", true);
 
         assertEquals("hello everyone", result.getMessage());
     }
@@ -323,7 +330,7 @@ public class ChatEventProcessorTest {
         FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
         ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
 
-        ProcessedChatEvent result = processor.process(user, "hello everyone", true);
+        ChatModerationDecision result = processor.process(user, "hello everyone", true);
 
         assertEquals("Hello everyone", result.getMessage());
     }
@@ -353,9 +360,149 @@ public class ChatEventProcessorTest {
         final ChatEventProcessor processor = processor(modules,
                 new FakePlatform("Bukkit", java.util.Arrays.<ChatUser>asList(sender, watcher)), players);
 
-        final ProcessedChatEvent result = processor.process(sender, "bad", true);
+        final ChatModerationDecision result = processor.process(sender, "bad", true);
 
-        assertTrue(result.isCancelled());
+        assertTrue(result.getAction().isTerminal());
+    }
+
+    @Test
+    public void serverMute_returnsBlockWithServerMuteReason() {
+        TestModuleManager modules = modules();
+        modules.getServerMuteModule().loadData(true, true, "mute.bypass");
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("BungeeCord", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "hello", true);
+
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertEquals("server-mute", decision.getReasonId().orElse(""));
+        assertTrue(decision.getPlayerFeedback().isPresent());
+        assertFalse(decision.getPlayerFeedback().get().isBlank());
+    }
+
+    @Test
+    public void noMove_returnsBlockWithNoMoveChatReason() {
+        TestModuleManager modules = modules();
+        modules.getNoMoveChatModule().loadData(true, "move.bypass");
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "hello", true);
+
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertEquals("no-move-chat", decision.getReasonId().orElse(""));
+    }
+
+    @Test
+    public void fakeMessageBlacklist_returnsSelfOnly() {
+        TestModuleManager modules = modules();
+        Map<String, Map<String, String>> locales = new HashMap<String, Map<String, String>>();
+        Map<String, String> en = new HashMap<String, String>();
+        en.put("blocked_message", "blocked");
+        en.put("blacklist_warn_message", "Blocked word: %word%.");
+        en.put("filtered", "filtered");
+        locales.put("en", en);
+        modules.getMessagesModule().loadData("en", locales);
+        modules.getBlacklistModule().loadData(true, "Blacklist", true, false, "", 0, "self-only", false,
+                new String[0], new String[] { "pvt4" }, false);
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "Pvt4", true);
+
+        assertEquals(ChatModerationAction.SELF_ONLY, decision.getAction());
+        assertTrue(decision.getPlayerFeedback().isPresent());
+    }
+
+    @Test
+    public void terminalBeforeCorrection_stopsFlood() {
+        TestModuleManager modules = modules();
+        Map<String, Map<String, String>> locales = new HashMap<String, Map<String, String>>();
+        Map<String, String> en = new HashMap<String, String>();
+        en.put("blocked_message", "blocked");
+        en.put("blacklist_warn_message", "blocked %word%");
+        en.put("filtered", "filtered");
+        locales.put("en", en);
+        modules.getMessagesModule().loadData("en", locales);
+        modules.getCorrectionModule().loadData(true, "Correction", true, false, true, true, 8, "",
+                createCorrectionReplacements(),
+                Collections.<String>emptyList(),
+                () -> Collections.<String>emptyList());
+        modules.getBlacklistModule().loadData(true, "Blacklist", false, false, "", 0, "", false,
+                new String[0], new String[] { "bad" }, true);
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "bad wath", true);
+
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+        assertEquals("bad wath", decision.getMessage());
+    }
+
+    @Test
+    public void terminalOriginal_preventsCorrection() {
+        TestModuleManager modules = modules();
+        Map<String, Map<String, String>> locales = new HashMap<String, Map<String, String>>();
+        Map<String, String> en = new HashMap<String, String>();
+        en.put("blocked_message", "blocked");
+        en.put("blacklist_warn_message", "blocked %word%");
+        en.put("correction_warn_message", "corrected");
+        en.put("filtered", "filtered");
+        locales.put("en", en);
+        modules.getMessagesModule().loadData("en", locales);
+        modules.getCorrectionModule().loadData(true, "Correction", true, false, true, true, 8, "",
+                createCorrectionReplacements(),
+                Collections.<String>emptyList(),
+                () -> Collections.<String>emptyList());
+        modules.getBlacklistModule().loadData(true, "Blacklist", false, false, "", 0, "", false,
+                new String[0], new String[] { "bad" }, true);
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "bad wath", true);
+
+        assertEquals("bad wath", decision.getMessage());
+        assertEquals(ChatModerationAction.BLOCK, decision.getAction());
+    }
+
+    @Test
+    public void blankFeedback_stillReturnsDecision() {
+        TestModuleManager modules = modules();
+        Map<String, Map<String, String>> locales = new HashMap<String, Map<String, String>>();
+        Map<String, String> en = new HashMap<String, String>();
+        en.put("blocked_message", "");
+        en.put("filtered", "filtered");
+        locales.put("en", en);
+        modules.getMessagesModule().loadData("en", locales);
+        modules.getGeneralModule().loadData(false, false, false, Collections.<String>emptyList(), "",
+                Collections.<String>emptyList());
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        ChatModerationDecision decision = processor.process(user, "hello", true);
+
+        assertTrue(decision != null);
+        assertEquals(ChatModerationAction.PASS, decision.getAction());
+    }
+
+    @Test
+    public void processorDoesNotSendTerminalMessage_toFakeUser() {
+        TestModuleManager modules = modules();
+        Map<String, Map<String, String>> locales = new HashMap<String, Map<String, String>>();
+        Map<String, String> en = new HashMap<String, String>();
+        en.put("blocked_message", "blocked");
+        en.put("blacklist_warn_message", "blocked %word%");
+        en.put("filtered", "filtered");
+        locales.put("en", en);
+        modules.getMessagesModule().loadData("en", locales);
+        modules.getBlacklistModule().loadData(true, "Blacklist", false, false, "", 0, "", false,
+                new String[0], new String[] { "bad" }, true);
+        FakeUser user = new FakeUser(UUID.randomUUID(), "Steve");
+        ChatEventProcessor processor = processor(modules, new FakePlatform("Bukkit", Collections.singletonList(user)), new ChatPlayerManager());
+
+        processor.process(user, "bad", true);
+
+        assertTrue(user.getMessages().isEmpty());
     }
 
     private static java.util.Map<String, String> createCorrectionReplacements() {
@@ -430,7 +577,7 @@ public class ChatEventProcessorTest {
         @Override
         public ChatEventResult processEvent(final ChatPlayer chatPlayer, final MessagesModule messagesModule,
                 final String playerName, final String originalMessage, final String lang) {
-            return new ChatEventResult(originalMessage, false, true);
+            return ChatEventResult.selfOnly(originalMessage);
         }
     }
 

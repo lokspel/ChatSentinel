@@ -2,10 +2,12 @@ package dev._2lstudios.chatsentinel.bukkit.listeners;
 
 import dev._2lstudios.chatsentinel.bukkit.ChatSentinel;
 import dev._2lstudios.chatsentinel.bukkit.platform.BukkitChatUser;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationApplication;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayerManager;
 import dev._2lstudios.chatsentinel.shared.chat.LegacyChatFormatRenderer;
-import dev._2lstudios.chatsentinel.shared.chat.ProcessedChatEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -33,23 +35,35 @@ public class AsyncPlayerChatListener implements Listener {
         }
 
         final BukkitChatUser chatUser = new BukkitChatUser(plugin, player, plugin.getMessageSink());
-        final ProcessedChatEvent finalResult = plugin.getChatEventProcessor().process(chatUser, originalMessage, true);
+        final ChatModerationDecision decision = plugin.getChatEventProcessor().process(chatUser, originalMessage, true);
 
-        if (finalResult.isHide()) {
-            event.setCancelled(true);
-            chatUser.sendMessage(renderLine(event, player, finalResult.getMessage()));
+        final ChatModerationAction action = decision.getAction();
+
+        if (action.isTerminal()) {
+            String renderedSelfOnly = null;
+            if (action == ChatModerationAction.SELF_ONLY) {
+                renderedSelfOnly = chatFormatRenderer.render(event.getFormat(), player.getDisplayName(), player.getName(), originalMessage);
+            }
+            final ChatModerationApplication application = ChatModerationApplication.forChat(decision, renderedSelfOnly);
+
+            if (application.getCancelOriginal()) {
+                event.setCancelled(true);
+            }
+
+            final java.util.List<String> messages = application.getSenderMessages();
+            if (!messages.isEmpty()) {
+                final String reasonId = decision.getReasonId().orElse("");
+                chatUser.sendRequiredMessages(action, reasonId, messages);
+            }
             return;
         }
 
-        if (finalResult.isCancelled()) {
-            event.setCancelled(true);
-            return;
+        if (action.rewritesMessage()) {
+            event.setMessage(decision.getMessage());
         }
 
-        event.setMessage(finalResult.getMessage());
-        final String finalMessage = finalResult.getMessage();
         final ChatPlayer chatPlayer = chatPlayerManager.getPlayer(chatUser);
-        chatPlayer.addLastMessage(finalMessage, System.currentTimeMillis());
+        chatPlayer.addLastMessage(decision.getMessage(), System.currentTimeMillis());
     }
 
     private boolean isIgnoredCommand(final String message) {

@@ -7,6 +7,7 @@ import java.util.Map;
 import dev._2lstudios.chatsentinel.shared.utils.PlaceholderUtil;
 
 public class MessagesModule {
+	private static final String CANCELLATION_FALLBACK_BUILTIN = "\u00a7c\u00a7lCS: \u00a7cYour input was blocked by \u00a7f%module%\u00a7c.";
 	private Map<String, Map<String, String>> locales;
 	private String defaultLang = "en";
 
@@ -111,6 +112,24 @@ public class MessagesModule {
     public String getBlockedMessage(final String[][] placeholders, final String lang) {
         return PlaceholderUtil.replacePlaceholders(getString(lang, "blocked_message"), placeholders);
     }
+
+	public String getRequiredCancellationMessage(
+	        String preferredMessage,
+	        String[][] placeholders,
+	        String lang) {
+	    if (preferredMessage != null && !preferredMessage.trim().isEmpty()) {
+	        return PlaceholderUtil.replacePlaceholders(preferredMessage, placeholders);
+	    }
+	    LookupResult blocked = lookupString("blocked_message", lang);
+	    if (blocked.present && !blocked.value.trim().isEmpty()) {
+	        return PlaceholderUtil.replacePlaceholders(blocked.value, placeholders);
+	    }
+	    LookupResult cancellationFallback = lookupString("cancellation_fallback", lang);
+	    if (cancellationFallback.present && !cancellationFallback.value.trim().isEmpty()) {
+	        return PlaceholderUtil.replacePlaceholders(cancellationFallback.value, placeholders);
+	    }
+	    return PlaceholderUtil.replacePlaceholders(CANCELLATION_FALLBACK_BUILTIN, placeholders);
+	}
 
 	public String getFiltered(String lang) {
 		return PlaceholderUtil.replacePlaceholders(getString(lang, "filtered"));

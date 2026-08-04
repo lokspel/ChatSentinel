@@ -30,7 +30,7 @@ public class SyntaxModerationModule extends ModerationModule {
 	public ChatEventResult processEvent(ChatPlayer chatPlayer, MessagesModule messagesModule, String playerName,
 			String message, String lang) {
 		if (isEnabled() && !isWhitelisted(message) && hasSyntax(message)) {
-			return new ChatEventResult(message, true);
+			return ChatEventResult.block(message);
 		}
 
 		return null;

@@ -8,9 +8,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
 import dev._2lstudios.chatsentinel.bukkit.ChatSentinel;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationDecision;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayerManager;
-import dev._2lstudios.chatsentinel.shared.chat.ProcessedChatEvent;
 import dev._2lstudios.chatsentinel.shared.socialspy.SocialSpyService;
 
 public class ServerCommandListener implements Listener {
@@ -37,17 +38,20 @@ public class ServerCommandListener implements Listener {
 		socialSpyService.publishCommand(chatUser, message);
 
 		// Process the event
-		ProcessedChatEvent finalResult = ChatSentinel.getInstance().getChatEventProcessor().process(chatUser, message, true);
+		ChatModerationDecision decision = ChatSentinel.getInstance().getChatEventProcessor().process(chatUser, message, true);
 
 		// Apply modifiers to event
-		if (finalResult.isCancelled()) {
+		final ChatModerationAction action = decision.getAction();
+		if (action.isTerminal()) {
 			event.setCancelled(true);
+			final java.util.List<String> messages = java.util.Collections.singletonList(
+					decision.getPlayerFeedback().orElse(""));
+			final String reasonId = decision.getReasonId().orElse("");
+			chatUser.sendRequiredMessages(action, reasonId, messages);
 		} else {
-			event.setMessage(finalResult.getMessage());
-		}
-
-		// Set last message
-		if (!event.isCancelled()) {
+			if (action.rewritesMessage()) {
+				event.setMessage(decision.getMessage());
+			}
 			chatPlayer.addLastCommand(System.currentTimeMillis());
 		}
 	}

@@ -67,12 +67,10 @@ public final class SimilarityModerationModule extends ModerationModule {
             return null;
         }
 
-        final ChatEventResult result = new ChatEventResult(message, true);
-        result.setPlayerMessage(messagesModule.getSimilarityWarnMessage(new String[][] {
+        return ChatEventResult.block(message).withPlayerMessage(messagesModule.getSimilarityWarnMessage(new String[][] {
                 { "%similarity%", "%threshold%", "%previous_message%" },
                 { formatPercent(highest), formatPercent(thresholdPercentage), previousMatch }
         }, lang));
-        return result;
     }
 
     @Override

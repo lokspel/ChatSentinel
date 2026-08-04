@@ -1,6 +1,7 @@
 package dev._2lstudios.chatsentinel.shared.modules;
 
 import dev._2lstudios.chatsentinel.shared.chat.ChatEventResult;
+import dev._2lstudios.chatsentinel.shared.chat.ChatModerationAction;
 import dev._2lstudios.chatsentinel.shared.chat.ChatPlayer;
 import org.junit.Test;
 
@@ -23,7 +24,7 @@ public class SimilarityModerationModuleTest {
         ChatEventResult result = module.processEvent(chatPlayer, messagesModule, "Steve", "spaaam", "en");
 
         assertNotNull(result);
-        assertTrue(result.isCancelled());
+        assertEquals(ChatModerationAction.BLOCK, result.getAction());
         assertTrue(result.getPlayerMessage().orElse("").contains("%"));
     }
 
@@ -38,7 +39,7 @@ public class SimilarityModerationModuleTest {
         ChatEventResult result = module.processEvent(chatPlayer, messagesModule, "Steve", "spaaaaaam", "en");
 
         assertNotNull(result);
-        assertTrue(result.isCancelled());
+        assertEquals(ChatModerationAction.BLOCK, result.getAction());
         assertTrue(result.getPlayerMessage().orElse("").contains("%"));
     }
 
@@ -105,7 +106,7 @@ public class SimilarityModerationModuleTest {
         ChatEventResult result = module.processEvent(chatPlayer, messagesModule, "Steve", "messag", "en");
 
         assertNotNull(result);
-        assertTrue(result.isCancelled());
+        assertEquals(ChatModerationAction.BLOCK, result.getAction());
         assertTrue(result.getPlayerMessage().orElse("").contains("%"));
     }
 

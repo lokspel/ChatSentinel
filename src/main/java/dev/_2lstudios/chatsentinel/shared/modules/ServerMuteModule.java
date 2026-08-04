@@ -27,7 +27,7 @@ public class ServerMuteModule extends ModerationModule {
 	public ChatEventResult processEvent(ChatPlayer chatPlayer, MessagesModule messagesModule, String playerName,
 			String originalMessage, String lang) {
 		if (isEnabled() && muted) {
-			return new ChatEventResult(messagesModule.getServerMuted(lang), true);
+			return ChatEventResult.block(messagesModule.getServerMuted(lang));
 		}
 
 		return null;
